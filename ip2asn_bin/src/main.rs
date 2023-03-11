@@ -30,7 +30,7 @@ struct Announcement {
 
 fn micros_float(duration: &Duration) -> String {
     let nanos = duration.as_nanos();
-    format!("{}.{}", nanos / 1000, nanos % 1000)
+    format!("{}.{:03}", nanos / 1000, nanos % 1000)
 }
 
 #[tokio::main]

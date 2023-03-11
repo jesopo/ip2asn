@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "ip2asn_bin",
+    "ip2asn_lib",
+]
+
+[profile.release]
+debug = true

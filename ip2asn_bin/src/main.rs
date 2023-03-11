@@ -1,14 +1,14 @@
 use cidr::IpCidr;
-use clap;
 use clap::Parser;
 use ip2asn_lib::Node;
 use serde::Deserialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr as _;
 use std::sync::Arc;
+use std::time::Duration;
 use warp::Filter as _;
 
 #[derive(Parser, Debug)]
@@ -17,7 +17,7 @@ struct Args {
     #[clap(index = 1)]
     table: PathBuf,
     #[clap(index = 2)]
-    port: u16,
+    bind: SocketAddr,
 }
 
 #[derive(Deserialize)]
@@ -26,6 +26,11 @@ struct Announcement {
     cidr: IpCidr,
     #[serde(rename = "ASN")]
     asn: u32,
+}
+
+fn micros_float(duration: &Duration) -> String {
+    let nanos = duration.as_nanos();
+    format!("{}.{}", nanos / 1000, nanos % 1000)
 }
 
 #[tokio::main]
@@ -69,18 +74,15 @@ async fn main() {
 
         let (status, body) = match asn {
             Some(asn) => (200, asn.to_string()),
-            None => (404, "".to_string()),
+            None => (404, String::new()),
         };
 
         builder
             .status(status)
             .header("X-Depth", depth.to_string())
-            .header(
-                "X-Elapsed",
-                format!("{}µs", (now.elapsed().as_nanos() as f64) / 1000.0),
-            )
+            .header("X-Elapsed", format!("{}µs", micros_float(&now.elapsed())))
             .body(body)
     });
 
-    warp::serve(route).run(([10, 84, 1, 1], args.port)).await;
+    warp::serve(route).run(args.bind).await;
 }

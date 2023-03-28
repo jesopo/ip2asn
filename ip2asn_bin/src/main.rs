@@ -1,9 +1,14 @@
+mod util;
+
 use clap::Parser;
+use futures::StreamExt as _;
 use ip2asn_lib::AsnMapper as _;
+use notify::event::AccessKind;
+use notify::{EventKind, RecursiveMode, Watcher as _};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr as _;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use warp::Filter as _;
 
@@ -26,28 +31,58 @@ async fn main() {
     let args = Args::parse();
 
     let (map_v4, map_v6) = ip2asn_lib::BgpTools::parse(&args.table).unwrap();
-    let map_v4 = Arc::new(map_v4);
-    let map_v6 = Arc::new(map_v6);
+    let map_v4 = Arc::new(RwLock::new(map_v4));
+    let map_v6 = Arc::new(RwLock::new(map_v6));
 
-    let route = warp::path::param().map(move |a: String| {
-        let now = std::time::Instant::now();
-        let asn = match IpAddr::from_str(&a).unwrap() {
-            IpAddr::V4(ip) => map_v4.lookup(ip),
-            IpAddr::V6(ip) => map_v6.lookup(ip),
-        };
+    let route = warp::path::param().map({
+        let map_v4 = Arc::clone(&map_v4);
+        let map_v6 = Arc::clone(&map_v6);
 
-        let builder = warp::http::Response::builder();
+        move |a: String| {
+            let now = std::time::Instant::now();
+            let asn = match IpAddr::from_str(&a).unwrap() {
+                IpAddr::V4(ip) => map_v4.read().unwrap().lookup(ip).cloned(),
+                IpAddr::V6(ip) => map_v6.read().unwrap().lookup(ip).cloned(),
+            };
 
-        let (status, body) = match asn {
-            Some(asn) => (200, asn.to_string()),
-            None => (404, String::new()),
-        };
+            let builder = warp::http::Response::builder();
 
-        builder
-            .status(status)
-            .header("X-Elapsed", format!("{}µs", micros_float(&now.elapsed())))
-            .body(body)
+            let (status, body) = match asn {
+                Some(asn) => (200, asn.to_string()),
+                None => (404, String::new()),
+            };
+
+            builder
+                .status(status)
+                .header("X-Elapsed", format!("{}µs", micros_float(&now.elapsed())))
+                .body(body)
+        }
     });
 
-    warp::serve(route).run(args.bind).await;
+    let (mut watcher, mut rx) = self::util::async_watcher().unwrap();
+    watcher
+        .watch(&args.table, RecursiveMode::NonRecursive)
+        .unwrap();
+
+    let map_v4 = Arc::clone(&map_v4);
+    let map_v6 = Arc::clone(&map_v6);
+
+    tokio::join!(warp::serve(route).run(args.bind), async move {
+        while let Some(res) = rx.next().await {
+            if let Ok(res) = res {
+                if let EventKind::Access(AccessKind::Close(_)) = res.kind {
+                    match ip2asn_lib::BgpTools::parse(&args.table) {
+                        Ok((new_map_v4, new_map_v6)) => {
+                            *map_v4.write().unwrap() = new_map_v4;
+                            *map_v6.write().unwrap() = new_map_v6;
+                            println!("reloaded table");
+                        }
+                        Err(e) => {
+                            eprintln!("couldn't load table: {e:?}");
+                        }
+                    };
+                }
+            }
+        }
+    });
 }

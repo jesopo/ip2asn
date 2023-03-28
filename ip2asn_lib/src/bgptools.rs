@@ -22,16 +22,11 @@ impl AsnMapper for BgpTools {
         let file = File::open(table)?;
         let reader = BufReader::new(file);
 
-        let mut announcements = Vec::new();
-        for line in reader.lines() {
-            let announcement: Announcement = serde_json::from_str(&line?)?;
-            announcements.push(announcement);
-        }
-
         let mut map_v4 = BTreeMap::new();
         let mut map_v6 = BTreeMap::new();
 
-        for announcement in announcements {
+        for line in reader.lines() {
+            let announcement: Announcement = serde_json::from_str(&line?)?;
             match announcement.cidr {
                 IpCidr::V4(cidr) => map_v4.insert(cidr.first_address().into(), announcement.asn),
                 IpCidr::V6(cidr) => map_v6.insert(cidr.first_address().into(), announcement.asn),

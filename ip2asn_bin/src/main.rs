@@ -1,4 +1,5 @@
 use clap::Parser;
+use ip2asn_lib::AsnMapper as _;
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr as _;
@@ -24,7 +25,7 @@ fn micros_float(duration: &Duration) -> String {
 async fn main() {
     let args = Args::parse();
 
-    let (map_v4, map_v6) = ip2asn_lib::bgptools::parse(&args.table).unwrap();
+    let (map_v4, map_v6) = ip2asn_lib::BgpTools::parse(&args.table).unwrap();
     let map_v4 = Arc::new(map_v4);
     let map_v6 = Arc::new(map_v6);
 

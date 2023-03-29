@@ -49,14 +49,12 @@ async fn main() {
                 IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).copied(),
             };
 
-            let builder = warp::http::Response::builder();
-
             let (status, body) = match asn {
                 Some(asn) => (200, asn.to_string()),
                 None => (404, String::new()),
             };
 
-            builder
+            warp::http::Response::builder()
                 .status(status)
                 .header("X-Elapsed", format!("{}µs", micros_float(&now.elapsed())))
                 .body(body)

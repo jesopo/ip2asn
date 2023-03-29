@@ -10,7 +10,6 @@ use notify::{EventKind, RecursiveMode, Watcher as _};
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::str::FromStr as _;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use warp::Filter as _;
@@ -43,9 +42,9 @@ async fn main() {
         let map_v4 = Arc::clone(&map_v4);
         let map_v6 = Arc::clone(&map_v6);
 
-        move |a: String| {
+        move |cidr: IpCidr| {
             let now = std::time::Instant::now();
-            let asn = match IpCidr::from_str(&a).unwrap() {
+            let asn = match cidr {
                 IpCidr::V4(cidr) => map_v4.read().unwrap().lookup(&cidr).copied(),
                 IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).copied(),
             };

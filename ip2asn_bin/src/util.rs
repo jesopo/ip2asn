@@ -14,7 +14,7 @@ pub(super) fn async_watcher(
         move |res| {
             futures::executor::block_on(async {
                 tx.send(res).await.unwrap();
-            })
+            });
         },
         Config::default(),
     )?;

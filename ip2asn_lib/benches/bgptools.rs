@@ -25,10 +25,16 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut rng = rand::thread_rng();
     c.bench_function("v4 uncached", |b| {
-        b.iter(|| map_v4.lookup(&Ipv4Cidr::new(rng.gen::<u32>().into(), 32).unwrap()))
+        b.iter(|| {
+            let cidr = Ipv4Cidr::new(rng.gen::<u32>().into(), 32).unwrap();
+            map_v4.lookup(&cidr);
+        })
     });
     c.bench_function("v6 uncached", |b| {
-        b.iter(|| map_v6.lookup(&Ipv6Cidr::new(rng.gen::<u128>().into(), 128).unwrap()))
+        b.iter(|| {
+            let cidr = Ipv6Cidr::new(rng.gen::<u128>().into(), 128).unwrap();
+            map_v6.lookup(&cidr);
+        })
     });
 }
 

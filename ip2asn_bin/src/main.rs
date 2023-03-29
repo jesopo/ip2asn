@@ -46,8 +46,8 @@ async fn main() {
         move |a: String| {
             let now = std::time::Instant::now();
             let asn = match IpCidr::from_str(&a).unwrap() {
-                IpCidr::V4(cidr) => map_v4.read().unwrap().lookup(&cidr).cloned(),
-                IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).cloned(),
+                IpCidr::V4(cidr) => map_v4.read().unwrap().lookup(&cidr).copied(),
+                IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).copied(),
             };
 
             let builder = warp::http::Response::builder();

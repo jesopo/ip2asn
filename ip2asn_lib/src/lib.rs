@@ -1,7 +1,7 @@
 pub mod bgptools;
 
 pub use self::bgptools::BgpTools;
-use cidr::{Ipv4Cidr, Ipv6Cidr};
+use cidr::{Cidr, Ipv4Cidr, Ipv6Cidr};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -25,22 +25,27 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-pub struct AsnMap<T: std::cmp::Ord> {
+pub struct AsnMap<T: Cidr> {
     map: BTreeMap<T, u32>,
 }
 
-impl<T: std::cmp::Ord> AsnMap<T> {
+impl<T: Cidr> AsnMap<T> {
     /// Find which CIDR is the closest superset of the provided CIDR.
     pub fn lookup(&self, key: &T) -> Option<&u32> {
         // this is the centerpiece of how ip2asn works.
-        self.map
-            // this creates a potential range containing the start of the map
-            // and anything less-than-or-equal-to the query key
-            .range(..=key)
-            // this then visits only the end of that potential range
-            .next_back()
-            // this extract the ASN
-            .map(|(_, v)| v)
+        //
+        // `self.map.range(..=key)` creates a potential range from the start
+        // of the map, through everything less-than-or-equal-to the query key
+        //
+        // `.next_back()` then visits only the end of that potential range
+        if let Some((cidr, asn)) = self.map.range(..=key).next_back() {
+            // given we only know the network we've found is
+            // less-than-or-equal-to the query key, we need to make sure we're
+            // not past the end of the network
+            (cidr.contains(&key.first_address())).then_some(asn)
+        } else {
+            None
+        }
     }
 }
 

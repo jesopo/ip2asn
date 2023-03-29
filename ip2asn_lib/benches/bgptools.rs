@@ -2,6 +2,7 @@ use cidr::{Ipv4Cidr, Ipv6Cidr};
 use criterion::{criterion_group, criterion_main, Criterion};
 use ip2asn_lib::AsnMapper as _;
 use rand::Rng;
+use std::collections::VecDeque;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::PathBuf;
 use std::str::FromStr as _;
@@ -24,16 +25,24 @@ fn criterion_benchmark(c: &mut Criterion) {
     c.bench_function("v6 cached", |b| b.iter(|| map_v6.lookup(&ipv6_cached)));
 
     let mut rng = rand::thread_rng();
+
+    let mut ipv4_uncached = VecDeque::new();
+    let mut ipv6_uncached = VecDeque::new();
+    for _ in 0..100_000_000 {
+        ipv4_uncached.push_back(Ipv4Cidr::new(rng.gen::<u32>().into(), 32).unwrap());
+        ipv6_uncached.push_back(Ipv6Cidr::new(rng.gen::<u128>().into(), 128).unwrap());
+    }
+
     c.bench_function("v4 uncached", |b| {
         b.iter(|| {
-            let cidr = Ipv4Cidr::new(rng.gen::<u32>().into(), 32).unwrap();
-            map_v4.lookup(&cidr);
+            map_v4.lookup(&ipv4_uncached[0]);
+            ipv4_uncached.rotate_left(1);
         })
     });
     c.bench_function("v6 uncached", |b| {
         b.iter(|| {
-            let cidr = Ipv6Cidr::new(rng.gen::<u128>().into(), 128).unwrap();
-            map_v6.lookup(&cidr);
+            map_v6.lookup(&ipv6_uncached[0]);
+            ipv6_uncached.rotate_left(1);
         })
     });
 }

@@ -3,8 +3,10 @@ mod util;
 use clap::Parser;
 use futures::StreamExt as _;
 use ip2asn_lib::AsnMapper as _;
+use log::info;
 use notify::event::AccessKind;
 use notify::{EventKind, RecursiveMode, Watcher as _};
+use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::str::FromStr as _;
@@ -29,6 +31,8 @@ fn micros_float(duration: &Duration) -> String {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+
+    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
 
     let (map_v4, map_v6) = ip2asn_lib::BgpTools::parse(&args.table).unwrap();
     let map_v4 = Arc::new(RwLock::new(map_v4));
@@ -75,7 +79,7 @@ async fn main() {
                         Ok((new_map_v4, new_map_v6)) => {
                             *map_v4.write().unwrap() = new_map_v4;
                             *map_v6.write().unwrap() = new_map_v6;
-                            println!("reloaded table");
+                            info!("reloaded table");
                         }
                         Err(e) => {
                             eprintln!("couldn't load table: {e:?}");

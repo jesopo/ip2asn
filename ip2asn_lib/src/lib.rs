@@ -1,6 +1,7 @@
 pub mod bgptools;
 
 pub use self::bgptools::BgpTools;
+use cidr::{Ipv4Cidr, Ipv6Cidr};
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -23,21 +24,15 @@ impl From<serde_json::Error> for Error {
 }
 
 pub struct AsnMap<T: std::cmp::Ord> {
-    map: BTreeMap<(T, u8), u32>,
+    map: BTreeMap<T, u32>,
 }
 
 impl<T: std::cmp::Ord> AsnMap<T> {
-    pub fn lookup(&self, key: impl Into<T>) -> Option<&u32> {
-        // this is the bulk of how ip2asn works.
-        // this finds the next smallest key to our query key and does so in
-        // log2 time
-        self.map
-            .range(..=(key.into(), 128))
-            .next_back()
-            .map(|(_, v)| v)
+    pub fn lookup(&self, key: &T) -> Option<&u32> {
+        self.map.range(..=key).next_back().map(|(_, v)| v)
     }
 }
 
 pub trait AsnMapper {
-    fn parse(path: &Path) -> Result<(AsnMap<u32>, AsnMap<u128>), Error>;
+    fn parse(path: &Path) -> Result<(AsnMap<Ipv4Cidr>, AsnMap<Ipv6Cidr>), Error>;
 }

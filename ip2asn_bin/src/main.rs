@@ -1,13 +1,14 @@
 mod util;
 
+use cidr::IpCidr;
 use clap::Parser;
 use futures::StreamExt as _;
-use ip2asn_lib::AsnMapper as _;
+use ip2asn_lib::AsnMapper;
 use log::info;
 use notify::event::AccessKind;
 use notify::{EventKind, RecursiveMode, Watcher as _};
 use simplelog::{Config, LevelFilter, SimpleLogger};
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr as _;
 use std::sync::{Arc, RwLock};
@@ -44,9 +45,9 @@ async fn main() {
 
         move |a: String| {
             let now = std::time::Instant::now();
-            let asn = match IpAddr::from_str(&a).unwrap() {
-                IpAddr::V4(ip) => map_v4.read().unwrap().lookup(ip).cloned(),
-                IpAddr::V6(ip) => map_v6.read().unwrap().lookup(ip).cloned(),
+            let asn = match IpCidr::from_str(&a).unwrap() {
+                IpCidr::V4(cidr) => map_v4.read().unwrap().lookup(&cidr).cloned(),
+                IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).cloned(),
             };
 
             let builder = warp::http::Response::builder();

@@ -1,5 +1,5 @@
 use super::{AsnMap, AsnMapper, Error};
-use cidr::IpCidr;
+use cidr::{IpCidr, Ipv4Cidr, Ipv6Cidr};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -18,7 +18,7 @@ struct Announcement {
 pub struct BgpTools {}
 
 impl AsnMapper for BgpTools {
-    fn parse(table: &Path) -> Result<(AsnMap<u32>, AsnMap<u128>), Error> {
+    fn parse(table: &Path) -> Result<(AsnMap<Ipv4Cidr>, AsnMap<Ipv6Cidr>), Error> {
         let file = File::open(table)?;
         let reader = BufReader::new(file);
 
@@ -28,14 +28,8 @@ impl AsnMapper for BgpTools {
         for line in reader.lines() {
             let announcement: Announcement = serde_json::from_str(&line?)?;
             match announcement.cidr {
-                IpCidr::V4(cidr) => map_v4.insert(
-                    (cidr.first_address().into(), cidr.network_length()),
-                    announcement.asn,
-                ),
-                IpCidr::V6(cidr) => map_v6.insert(
-                    (cidr.first_address().into(), cidr.network_length()),
-                    announcement.asn,
-                ),
+                IpCidr::V4(cidr) => map_v4.insert(cidr, announcement.asn),
+                IpCidr::V6(cidr) => map_v6.insert(cidr, announcement.asn),
             };
         }
 

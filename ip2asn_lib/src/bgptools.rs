@@ -26,7 +26,12 @@ impl AsnMapper for BgpTools {
         let mut map_v6 = BTreeMap::new();
 
         for line in reader.lines() {
-            let announcement: Announcement = serde_json::from_str(&line?)?;
+            let line = line?;
+            if line.starts_with("//") {
+                continue;
+            }
+
+            let announcement: Announcement = serde_json::from_str(&line)?;
             match announcement.cidr {
                 IpCidr::V4(cidr) => map_v4.insert(cidr, announcement.asn),
                 IpCidr::V6(cidr) => map_v6.insert(cidr, announcement.asn),

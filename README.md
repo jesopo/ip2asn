@@ -12,6 +12,8 @@ $ cargo run -q --release ~/table.jsonl 127.0.0.1:8083
 
 ## using
 
+when a mapping is found:
+
 ```
 $ curl -D- "http://127.0.0.1:8083/1.1.1.1"
 HTTP/1.1 200 OK
@@ -20,6 +22,18 @@ content-length: 5
 date: Wed, 29 Mar 2023 18:59:48 GMT
 
 13335
+```
+
+when a mapping is not found:
+
+```
+curl -D- "http://127.0.0.1:8083/127.0.0.1"; echo
+HTTP/1.1 404 Not Found
+x-elapsed: 4.060µs
+content-length: 0
+date: Thu, 30 Mar 2023 16:22:42 GMT
+
+
 ```
 
 ## benchmark

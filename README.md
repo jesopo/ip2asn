@@ -39,14 +39,14 @@ date: Thu, 30 Mar 2023 16:22:42 GMT
 ## benchmark
 
 ```
-$ wrk -t1 -c500 -d30s http://127.0.0.1:8083 -s random_ip.lua
-Running 30s test @ http://127.0.0.1:8083
+$ wrk -t1 -c500 -d30s http://127.0.0.1:8083/ -s random_ip.lua
+Running 30s test @ http://127.0.0.1:8083/
   1 threads and 500 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     5.24ms    2.45ms  36.88ms   75.77%
-    Req/Sec    60.38k     6.14k   73.08k    77.97%
-  1795945 requests in 30.01s, 256.23MB read
-  Non-2xx or 3xx responses: 840337
-Requests/sec:  59837.97
-Transfer/sec:      8.54MB
+    Latency     4.88ms    2.42ms  34.06ms   77.18%
+    Req/Sec    68.06k     6.24k   78.10k    74.41%
+  2030458 requests in 30.08s, 230.30MB read
+  Non-2xx or 3xx responses: 583937
+Requests/sec:  67511.05
+Transfer/sec:      7.66MB
 ```

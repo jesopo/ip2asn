@@ -27,7 +27,7 @@ date: Wed, 29 Mar 2023 18:59:48 GMT
 when a mapping is not found:
 
 ```
-curl -D- "http://127.0.0.1:8083/127.0.0.1"; echo
+$ curl -D- "http://127.0.0.1:8083/127.0.0.1"; echo
 HTTP/1.1 404 Not Found
 x-elapsed: 4.060µs
 content-length: 0

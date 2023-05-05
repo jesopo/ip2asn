@@ -1,50 +1,70 @@
 pub mod bgptools;
+mod common;
+mod interval_tree;
 
 pub use self::bgptools::BgpTools;
+pub use self::common::{Error, NetRange};
+use self::interval_tree::Node;
 use cidr::{Cidr, Ipv4Cidr, Ipv6Cidr};
-use std::collections::BTreeMap;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::Path;
 
-#[derive(Debug)]
-pub enum Error {
-    /// Error whilst reading provided IP<->ASN mapping file
-    File(std::io::Error),
-    /// Error whilst JSON-decoding IP<->ASN mappings
-    Json(serde_json::Error),
+pub trait AsnMap<T: Cidr> {
+    fn new() -> Self;
+    fn insert(&mut self, cidr: T, asn: u32);
+    fn lookup(&self, address: &T::Address) -> (u8, Option<&NetRange<T::Address>>);
 }
 
-impl From<std::io::Error> for Error {
-    fn from(other: std::io::Error) -> Self {
-        Error::File(other)
+pub struct Ipv4AsnMap {
+    node: Option<Node<Ipv4Cidr>>,
+}
+
+impl AsnMap<Ipv4Cidr> for Ipv4AsnMap {
+    fn new() -> Self {
+        Self { node: None }
     }
-}
 
-impl From<serde_json::Error> for Error {
-    fn from(other: serde_json::Error) -> Self {
-        Error::Json(other)
-    }
-}
-
-pub struct AsnMap<T: Cidr> {
-    map: BTreeMap<T, u32>,
-}
-
-impl<T: Cidr> AsnMap<T> {
-    /// Find which CIDR is the closest superset of the provided CIDR.
-    pub fn lookup(&self, key: &T) -> Option<&u32> {
-        // this is the centerpiece of how ip2asn works.
-        //
-        // `self.map.range(..=key)` creates a potential range from the start
-        // of the map, through everything less-than-or-equal-to the query key
-        //
-        // `.next_back()` then visits only the end of that potential range
-        if let Some((cidr, asn)) = self.map.range(..=key).next_back() {
-            // given we only know the network we've found is
-            // less-than-or-equal-to the query key, we need to make sure we're
-            // not past the end of the network
-            (cidr.contains(&key.first_address())).then_some(asn)
+    fn insert(&mut self, cidr: Ipv4Cidr, asn: u32) {
+        let new_node = Node::new(cidr, asn);
+        if let Some(root) = &mut self.node {
+            root.insert(new_node);
         } else {
-            None
+            self.node = Some(new_node);
+        }
+    }
+
+    fn lookup(&self, address: &Ipv4Addr) -> (u8, Option<&NetRange<Ipv4Addr>>) {
+        if let Some(node) = &self.node {
+            node.lookup(address)
+        } else {
+            (0, None)
+        }
+    }
+}
+
+pub struct Ipv6AsnMap {
+    node: Option<Node<Ipv6Cidr>>,
+}
+
+impl AsnMap<Ipv6Cidr> for Ipv6AsnMap {
+    fn new() -> Self {
+        Self { node: None }
+    }
+
+    fn insert(&mut self, cidr: Ipv6Cidr, asn: u32) {
+        let new_node = Node::new(cidr, asn);
+        if let Some(root) = &mut self.node {
+            root.insert(new_node);
+        } else {
+            self.node = Some(new_node);
+        }
+    }
+
+    fn lookup(&self, address: &Ipv6Addr) -> (u8, Option<&NetRange<Ipv6Addr>>) {
+        if let Some(node) = &self.node {
+            node.lookup(address)
+        } else {
+            (0, None)
         }
     }
 }
@@ -56,5 +76,5 @@ pub trait AsnMapper {
     ///
     /// Will return `Err` if there was an issue reading or parsing IP<->ASN
     /// mapping file.
-    fn parse(path: &Path) -> Result<(AsnMap<Ipv4Cidr>, AsnMap<Ipv6Cidr>), Error>;
+    fn parse(path: &Path) -> Result<(Ipv4AsnMap, Ipv6AsnMap), Error>;
 }

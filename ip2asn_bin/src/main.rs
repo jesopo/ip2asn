@@ -1,14 +1,13 @@
 mod util;
 
-use cidr::IpCidr;
 use clap::Parser;
 use futures::StreamExt as _;
-use ip2asn_lib::AsnMapper;
+use ip2asn_lib::{AsnMap, AsnMapper};
 use log::info;
 use notify::event::AccessKind;
 use notify::{EventKind, RecursiveMode, Watcher as _};
 use simplelog::{Config, LevelFilter, SimpleLogger};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -21,6 +20,8 @@ struct Args {
     table: PathBuf,
     #[clap(index = 2)]
     bind: SocketAddr,
+    #[clap(long, short, action)]
+    verbose: bool,
 }
 
 fn micros_float(duration: &Duration) -> String {
@@ -32,7 +33,14 @@ fn micros_float(duration: &Duration) -> String {
 async fn main() {
     let args = Args::parse();
 
-    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
+    SimpleLogger::init(
+        match args.verbose {
+            true => LevelFilter::Debug,
+            false => LevelFilter::Info,
+        },
+        Config::default(),
+    )
+    .unwrap();
 
     let (map_v4, map_v6) = ip2asn_lib::BgpTools::parse(&args.table).unwrap();
     let map_v4 = Arc::new(RwLock::new(map_v4));
@@ -42,11 +50,19 @@ async fn main() {
         let map_v4 = Arc::clone(&map_v4);
         let map_v6 = Arc::clone(&map_v6);
 
-        move |cidr: IpCidr| {
+        move |ip: IpAddr| {
             let now = std::time::Instant::now();
-            let asn = match cidr {
-                IpCidr::V4(cidr) => map_v4.read().unwrap().lookup(&cidr).copied(),
-                IpCidr::V6(cidr) => map_v6.read().unwrap().lookup(&cidr).copied(),
+            let (complexity, asn) = match ip {
+                IpAddr::V4(ip) => {
+                    let map = map_v4.read().unwrap();
+                    let (complexity, range) = map.lookup(&ip);
+                    (complexity, range.map(|r| r.asn))
+                }
+                IpAddr::V6(ip) => {
+                    let map = map_v6.read().unwrap();
+                    let (complexity, range) = map.lookup(&ip);
+                    (complexity, range.map(|r| r.asn))
+                }
             };
 
             let (status, body) = match asn {
@@ -57,6 +73,7 @@ async fn main() {
             warp::http::Response::builder()
                 .status(status)
                 .header("X-Elapsed", format!("{}µs", micros_float(&now.elapsed())))
+                .header("X-Complexity", complexity.to_string())
                 .body(body)
         }
     });
